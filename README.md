@@ -1,5 +1,5 @@
 # graph_ptr
-A smart ptr implementation that can handle cycles, similar to herb sutter's deferred_ptr but less fancy.
+A smart pointer implementation that can handle cycles, similar to herb sutter's deferred_ptr but less fancy.
 
 The user must declare which types will be managed by these pointers when creating a pool object. The pool is parametrized on the types that may have cyclic dependencies on each other that we'd like to manage with smart pointers.
 
