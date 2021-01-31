@@ -3,4 +3,4 @@ A smart ptr implementation that can handle cycles, similar to herb sutter's defe
 
 The user must declare which types will be managed by these pointers when creating a pool object. The pool is parametrized on the types that may have cyclic dependencies on each other that we'd like to manage with smart pointers.
 
-Then each smart pointer is created explicitly as a directed edge of an object dependency graph: it is either a link between two objects or it is a root link.
+Then each smart pointer is created explicitly as a directed edge of an object dependency graph: it is either a link between two objects or it is a root link, and the user can ask the pool to collect garbage which means deleting any object that cannot be reached from root links.
