@@ -14,60 +14,27 @@ using graph_ptr = graph_pool::graph_ptr<T>;
 int count = 0;
 
 struct A {
-    A(std::string msg) :  msg_(msg)
-    {
-        ++count;
-    }
-
-    void set( graph_ptr<B>& b_ptr) {
-        b_ptr_.set(this, b_ptr);
-    }
-
-    ~A() {
-        --count;
-        std::cout << "  destroying A{ " << msg_ << " }\n";
-    }
-
+    A(std::string msg) :  msg_(msg) { ++count;}
+    void set( graph_ptr<B>& b_ptr) { b_ptr_.set(this, b_ptr); }
+    ~A() { --count;  std::cout << "  destroying A{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
     graph_ptr<B> b_ptr_;
 };
 
 struct B {
-    B(std::string msg) : msg_(msg)
-    {
-        ++count;
-    }
-
-    void set( graph_ptr<C>& c_ptr) {
-        c_ptr_.set(this, c_ptr);
-    }
-
-    ~B() {
-        --count;
-        std::cout << "  destroying B{ " << msg_ << " }\n";
-    }
-
+    B(std::string msg) : msg_(msg) { ++count;}
+    void set( graph_ptr<C>& c_ptr) { c_ptr_.set(this, c_ptr);}
+    ~B() { --count; std::cout << "  destroying B{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
     graph_ptr<C> c_ptr_;
 };
 
 struct C {
-    C(std::string msg) : msg_(msg)
-    {
-        ++count;
-    }
-
-    void set( graph_ptr<A>& a_ptr) {
-        a_ptr_.set(this, a_ptr);
-    }
-
-    ~C() {
-        --count;
-        std::cout << "  destroying C{ " << msg_ << " }\n";
-    }
-
+    C(std::string msg) : msg_(msg) {  ++count; }
+    void set( graph_ptr<A>& a_ptr) {  a_ptr_.set(this, a_ptr); }
+    ~C() { --count;  std::cout << "  destroying C{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
     graph_ptr<A> a_ptr_;

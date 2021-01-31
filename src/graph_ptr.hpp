@@ -28,7 +28,7 @@ namespace gp {
                 auto j = a_list.find(v);
                 if (j == a_list.end())
                     return;
-                if (--j->second == 0) {
+                if (--(j->second) == 0) {
                     a_list.erase(j);
                 }
             }
