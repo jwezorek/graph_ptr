@@ -26,14 +26,14 @@ struct c {
 
 int main() { 
     std::cout << "making graph\n";
-
     {
         gp::graph_pool<a, b, c> p;
 
-        auto a_ptr = p.make<a>(std::string( "foo" ));
-        auto b_ptr = p.make<b>(std::string( "bar" ));
+        {
+            auto a_ptr = p.make_root<a>(std::string("foo"));
+            auto b_ptr = p.make_root<b>(std::string("bar"));
+        }
     }
-
     std::cout << "done\n";
 
     return 0;
