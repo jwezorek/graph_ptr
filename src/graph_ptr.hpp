@@ -140,6 +140,7 @@ namespace gp {
             T* v_;
         };
 
+        /*
         template <typename U, typename V>
         graph_ptr<V> make(const graph_ptr<U>& u, const graph_ptr<V>& v) {
             return graph_ptr(this, u.get(), v.get());
@@ -149,18 +150,19 @@ namespace gp {
         graph_ptr<V> make(void* u, const graph_ptr<V>& v) {
             return graph_ptr(this, u, v.get());
         }
+        */
 
         template<typename T, typename... Us>
-        graph_ptr<T> make(void* owner, Us... args) {
+        graph_ptr<T> make(void* owner, Us&&... args) {
             auto& p = std::get<std::vector<std::unique_ptr<T>>>(pools_);
-            p.emplace_back(std::make_unique<T>(std::forward<Us...>(args...)));
+            p.emplace_back(std::make_unique<T>(std::forward<Us>(args)...));
             auto* new_ptr = p.back().get();
             return graph_ptr(this, owner, new_ptr);
         }
 
         template<typename T, typename... Us>
-        graph_ptr<T> make_root(Us... args) {
-            return make<T>(nullptr, std::forward<Us...>(args...));
+        graph_ptr<T> make_root(Us&&... args) {
+            return make<T>(nullptr, std::forward<Us>(args)...);
         }
 
         void collect() {
