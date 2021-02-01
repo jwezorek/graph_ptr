@@ -54,6 +54,7 @@ namespace gp {
                 pool_{ nullptr }, u_{ nullptr }, v_{nullptr}
             {}
 
+            //TODO: get rid of this after self_ptr is enabled...
             void set(void* u, graph_ptr& v) {
                 release();
 
@@ -140,29 +141,17 @@ namespace gp {
             T* v_;
         };
 
-        /*
-        template <typename U, typename V>
-        graph_ptr<V> make(const graph_ptr<U>& u, const graph_ptr<V>& v) {
-            return graph_ptr(this, u.get(), v.get());
-        }
-
-        template <typename V>
-        graph_ptr<V> make(void* u, const graph_ptr<V>& v) {
-            return graph_ptr(this, u, v.get());
-        }
-        */
-
-        template<typename T, typename... Us>
-        graph_ptr<T> make(void* owner, Us&&... args) {
+        template<typename T, typename U, typename... Args>
+        graph_ptr<T> make(graph_ptr<U> u, Args&&... args) {
             auto& p = std::get<std::vector<std::unique_ptr<T>>>(pools_);
-            p.emplace_back(std::make_unique<T>(std::forward<Us>(args)...));
+            p.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
             auto* new_ptr = p.back().get();
-            return graph_ptr(this, owner, new_ptr);
+            return graph_ptr(this, u.get(), new_ptr);
         }
 
         template<typename T, typename... Us>
         graph_ptr<T> make_root(Us&&... args) {
-            return make<T>(nullptr, std::forward<Us>(args)...);
+            return make<T>(graph_ptr<T>(), std::forward<Us>(args)...);
         }
 
         void collect() {
