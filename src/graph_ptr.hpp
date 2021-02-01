@@ -23,13 +23,13 @@ namespace gp {
 
             using adj_list = std::unordered_map<void*, int>;
 
+            // insert an item of type T, default constructed, into a map mapping void*s to Ts
+            // and return a reference to the T in the map...
             template <typename T>
             static T& create_mapping(std::unordered_map<void*, T>& m, void* key) {
-                std::pair<void*, T> p;
-                p.first = key;
-                auto result = m.insert(p);
-                auto iter = result.first;
-                return iter->second;
+                return m.insert(
+                    std::pair<void*, T>{ key, {} }
+                ).first->second;
             }
 
             adj_list& get_or_create(void* v);

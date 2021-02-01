@@ -28,8 +28,7 @@ std::unordered_set<void*> gp::detail::graph::collect() {
     for (auto it = impl_.begin(); it != impl_.end();) {
         if (live.find(it->first) == live.end()) {
             it = impl_.erase(it);
-        }
-        else {
+        } else {
             it++;
         }
     }
@@ -41,8 +40,7 @@ gp::detail::graph::adj_list& gp::detail::graph::get_or_create(void* v) {
     auto iter = impl_.find(v);
     if (iter != impl_.end()) {
         return iter->second;
-    }
-    else {
+    } else {
         return create_mapping(impl_, v);
     }
 }
@@ -53,8 +51,7 @@ int& gp::detail::graph::get_or_create_edge(void* ptr_u, void* ptr_v) {
     auto iter = u.find(ptr_v);
     if (iter != u.end()) {
         return iter->second;
-    }
-    else {
+    } else {
         return create_mapping(u, ptr_v);
     }
 }
