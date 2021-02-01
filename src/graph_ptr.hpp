@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <set>
+#include <type_traits>
 
 namespace gp {
 
@@ -47,31 +48,42 @@ namespace gp {
     public:
 
         template<typename T>
+        class graph_ptr;
+
+        template<typename T>
+        class enable_self_graph_ptr
+        {
+            friend class graph_ptr<T>;
+
+        public:
+            const graph_ptr<T>& self_graph_ptr() const {
+                return *self_;
+            }
+
+        private:
+            std::unique_ptr<graph_ptr<T>> self_;
+        };
+
+        template<typename T>
         class graph_ptr {
             friend class graph_pool;
         public:
             graph_ptr() : 
                 pool_{ nullptr }, u_{ nullptr }, v_{nullptr}
-            {}
+            {
+            }
 
-            //TODO: get rid of this after self_ptr is enabled...
-            void set(void* u, graph_ptr& v) {
-                release();
-
-                pool_ = v.pool_;
-                u_ = u;
-                v_ = v.v_;
-
-                grab();
+            template<typename U>
+            graph_ptr(graph_ptr<U> u, graph_ptr v) :
+                graph_ptr(u.pool_, u.v_, v.v_) {
             }
 
             graph_ptr(const graph_ptr& other) : 
-                graph_ptr(other.pool_, other.u_, other.v_) {
+                    graph_ptr(other.pool_, other.u_, other.v_) {
             }
 
             graph_ptr(graph_ptr&& other) noexcept:
-                pool_{ other.pool_ }, u_{ other.u_ }, v_{ other.v_ }
-            { 
+                    pool_{ other.pool_ }, u_{ other.u_ }, v_{ other.v_ } { 
                 other.wipe();
             }
 
@@ -96,7 +108,7 @@ namespace gp {
                     u_ = other.u_;
                     v_ = other.v_;
 
-                    other_.wipe();
+                    other.wipe();
                 }
                 return *this;
             }
@@ -117,6 +129,14 @@ namespace gp {
 
         private:
 
+            void make_self_ptr() {
+                if constexpr (std::is_base_of< enable_self_graph_ptr<T>, T>::value) {
+                    static_cast<enable_self_graph_ptr<T>*>(v_)->self_ = std::unique_ptr<graph_ptr<T>>(
+                        new graph_ptr<T>(pool_, v_, v_)
+                    );
+                }
+            }
+
             void wipe() {
                 pool_ = nullptr;
                 u_ = nullptr;
@@ -134,6 +154,9 @@ namespace gp {
 
             graph_ptr(graph_pool* gp, void* u, T* v) : pool_(gp), u_(u), v_(v) {
                 grab();
+                if (u_ != v_) {
+                    make_self_ptr();
+                }
             }
 
             graph_pool* pool_;

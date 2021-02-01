@@ -11,11 +11,14 @@ using graph_pool = gp::graph_pool<A, B, C>;
 template <typename T>
 using graph_ptr = graph_pool::graph_ptr<T>;
 
+template <typename T>
+using enable_self_graph_ptr = graph_pool::enable_self_graph_ptr<T>;
+
 int count = 0;
 
-struct A {
+struct A : public enable_self_graph_ptr<A> {
     A(std::string msg, int num) :  msg_(msg), num_(num) { ++count;}
-    void set( graph_ptr<B>& b_ptr) { b_ptr_.set(this, b_ptr); }
+    void set(graph_ptr<B>& b_ptr) { b_ptr_ = graph_ptr<B>(self_graph_ptr(), b_ptr); }
     ~A() { --count;  std::cout << "  destroying A{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
@@ -23,18 +26,18 @@ private:
     int num_;
 };
 
-struct B {
+struct B : public enable_self_graph_ptr<B> {
     B(std::string msg) : msg_(msg) { ++count;}
-    void set( graph_ptr<C>& c_ptr) { c_ptr_.set(this, c_ptr);}
+    void set(graph_ptr<C>& c_ptr) { c_ptr_ = graph_ptr<C>( self_graph_ptr(), c_ptr ); }
     ~B() { --count; std::cout << "  destroying B{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
     graph_ptr<C> c_ptr_;
 };
 
-struct C {
+struct C : public enable_self_graph_ptr<C> {
     C(std::string msg) : msg_(msg) {  ++count; }
-    void set( graph_ptr<A>& a_ptr) {  a_ptr_.set(this, a_ptr); }
+    void set( graph_ptr<A>& a_ptr) {  a_ptr_ = graph_ptr<A>(self_graph_ptr(), a_ptr); }
     ~C() { --count;  std::cout << "  destroying C{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
