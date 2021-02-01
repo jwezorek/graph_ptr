@@ -100,7 +100,7 @@ namespace gp {
                 return *this;
             }
 
-            graph_ptr& operator=( graph_ptr&& other) {
+            graph_ptr& operator=( graph_ptr&& other) noexcept {
                 if (&other != this) {
                     release();
 
@@ -129,6 +129,8 @@ namespace gp {
 
         private:
 
+            using non_cost_type = std::remove_const_t<T>;
+
             void make_self_ptr() {
                 if constexpr (std::is_base_of< enable_self_graph_ptr<T>, T>::value) {
                     static_cast<enable_self_graph_ptr<T>*>(v_)->self_ = std::unique_ptr<graph_ptr<T>>(
@@ -145,11 +147,11 @@ namespace gp {
 
             void release() {
                 if (pool_ && v_)
-                    pool_->graph_.remove_edge(u_, v_);
+                    pool_->graph_.remove_edge(u_, const_cast<non_cost_type*>(v_));
             }
 
             void grab() {
-                pool_->graph_.insert_edge(u_, v_);
+                pool_->graph_.insert_edge(u_, const_cast<non_cost_type*>(v_));
             }
 
             graph_ptr(graph_pool* gp, void* u, T* v) : pool_(gp), u_(u), v_(v) {
@@ -180,6 +182,11 @@ namespace gp {
         void collect() {
             auto live_set = graph_.collect();
             collect_dead(pools_, live_set);
+        }
+
+        template<typename T, typename U>
+        static graph_ptr<T> const_pointer_cast(graph_ptr<U> p) {
+            return  graph_ptr<T>(p.pool_, p.u_, const_cast<std::remove_const_t<U>*>(p.v_));
         }
 
     private:
