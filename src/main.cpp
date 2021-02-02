@@ -14,12 +14,10 @@ using graph_ptr = graph_pool::graph_ptr<T>;
 template <typename T>
 using enable_self_graph_ptr = graph_pool::enable_self_graph_ptr<T>;
 
-int count = 0;
-
 struct A : public enable_self_graph_ptr<A> {
-    A(std::string msg, int num) :  msg_(msg), num_(num) { ++count;}
+    A(std::string msg, int num) :  msg_(msg), num_(num) { }
     void set(graph_ptr<B>& b_ptr) { b_ptr_ = graph_ptr<B>(self_graph_ptr(), b_ptr); }
-    ~A() { --count;  std::cout << "  destroying A{ " << msg_ << " }\n"; }
+    ~A() { std::cout << "  destroying A{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
     graph_ptr<B> b_ptr_;
@@ -27,18 +25,18 @@ private:
 };
 
 struct B : public enable_self_graph_ptr<B> {
-    B(std::string msg) : msg_(msg) { ++count;}
+    B(std::string msg) : msg_(msg) { }
     void set(graph_ptr<C>& c_ptr) { c_ptr_ = graph_ptr<C>( self_graph_ptr(), c_ptr ); }
-    ~B() { --count; std::cout << "  destroying B{ " << msg_ << " }\n"; }
+    ~B() { std::cout << "  destroying B{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
     graph_ptr<C> c_ptr_;
 };
 
 struct C : public enable_self_graph_ptr<C> {
-    C(std::string msg) : msg_(msg) {  ++count; }
+    C(std::string msg) : msg_(msg) { }
     void set( graph_ptr<A>& a_ptr) {  a_ptr_ = graph_ptr<A>(self_graph_ptr(), a_ptr); }
-    ~C() { --count;  std::cout << "  destroying C{ " << msg_ << " }\n"; }
+    ~C() { std::cout << "  destroying C{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
     graph_ptr<A> a_ptr_;
@@ -68,16 +66,16 @@ int main() {
             auto cycle1 = make_cycle(p, "foo", "bar", "mumble");
             auto cycle2 = make_cycle(p, "foo2", "bar2", "mumble2");
 
-            std::cout << "count after making two cycles that have local roots is " << count << ".\n";
+            std::cout << "count after making two cycles that have local roots is " << p.size() << ".\n";
 
             cycle2.reset();
 
-            std::cout << "after resetting cycle2, count is still " << count << " because we have not collected garbage\n";
+            std::cout << "after resetting cycle2, count is still " << p.size() << " because we have not collected garbage\n";
             std::cout << "okay, collect...\n";
 
             p.collect();
 
-            std::cout << "after collecting, count is  " << count << ".\n";
+            std::cout << "after collecting, count is  " << p.size() << ".\n";
             std::cout << "cycles leaving scope...\n";
         }
 

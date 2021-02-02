@@ -181,7 +181,29 @@ namespace gp {
 
         void collect() {
             auto live_set = graph_.collect();
-            collect_dead(pools_, live_set);
+            apply_to_pools(pools_, 
+                [&live_set](auto& pool) {
+                    pool.erase(
+                        std::remove_if(pool.begin(), pool.end(),
+                            [&live_set](const auto& un_ptr) -> bool {
+                                return live_set.find(un_ptr.get()) == live_set.end();
+                            }
+                        ),
+                        pool.end()
+                    );
+                }
+            );
+        }
+        
+        //TODO: figure out the best way to make this "const".
+        size_t size() {
+            size_t sz = 0;
+            apply_to_pools(pools_,
+                [&sz](const auto& p) {
+                    sz += p.size();
+                }
+            );
+            return sz;
         }
 
         template<typename T, typename U>
@@ -191,19 +213,12 @@ namespace gp {
 
     private:
 
-        template<size_t I = 0, typename... Tp>
-        void collect_dead(std::tuple<Tp...>& t, const std::unordered_set<void*>& live) {
+        template<size_t I = 0, typename F, typename... Tp>
+        static void apply_to_pools(std::tuple<Tp...>& t, F func)  {
             auto& pool = std::get<I>(t);
-            pool.erase(
-                std::remove_if(pool.begin(), pool.end(),
-                    [&live](const auto& u_ptr) -> bool {
-                        return live.find(u_ptr.get()) == live.end();
-                    }
-                ),
-                pool.end()
-            );
+            func(pool);
             if constexpr (I + 1 != sizeof...(Tp))
-                collect_dead<I + 1>(t, live);
+                apply_to_pools<I + 1>(t, func);
         }
 
         detail::graph graph_;
