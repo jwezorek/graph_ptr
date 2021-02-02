@@ -212,19 +212,11 @@ namespace gp {
 
     private:
 
-        template<size_t I = 0, typename F, typename... Tp>
-        static void apply_to_pools(const std::tuple<Tp...>& t, F func) {
-            const auto& pool = std::get<I>(t);
-            func(pool);
-            if constexpr (I + 1 != sizeof...(Tp))
-                apply_to_pools<I + 1>(t, func);
-        }
-
-        template<size_t I = 0, typename F, typename... Tp>
-        static void apply_to_pools(std::tuple<Tp...>& t, F func)  {
+        template<size_t I = 0, typename F, typename T>
+        static void apply_to_pools(T& t, F func)  {
             auto& pool = std::get<I>(t);
             func(pool);
-            if constexpr (I + 1 != sizeof...(Tp))
+            if constexpr (I + 1 != std::tuple_size<T>::value)
                 apply_to_pools<I + 1>(t, func);
         }
 
