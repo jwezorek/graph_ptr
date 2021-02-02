@@ -11,5 +11,5 @@ CTestTestfile.cmake
 _deps
 /out
 /.vs
-/.idea/.gitignore
-/cmake-build-debug/graph_ptr_project.cbp
+/.idea
+/cmake-build-debug
