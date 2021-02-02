@@ -195,8 +195,7 @@ namespace gp {
             );
         }
         
-        //TODO: figure out the best way to make this "const".
-        size_t size() {
+        size_t size() const {
             size_t sz = 0;
             apply_to_pools(pools_,
                 [&sz](const auto& p) {
@@ -212,6 +211,14 @@ namespace gp {
         }
 
     private:
+
+        template<size_t I = 0, typename F, typename... Tp>
+        static void apply_to_pools(const std::tuple<Tp...>& t, F func) {
+            const auto& pool = std::get<I>(t);
+            func(pool);
+            if constexpr (I + 1 != sizeof...(Tp))
+                apply_to_pools<I + 1>(t, func);
+        }
 
         template<size_t I = 0, typename F, typename... Tp>
         static void apply_to_pools(std::tuple<Tp...>& t, F func)  {
