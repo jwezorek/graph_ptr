@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <set>
 #include <type_traits>
+#include <algorithm>
 
 namespace gp {
 
