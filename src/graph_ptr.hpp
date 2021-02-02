@@ -130,7 +130,7 @@ namespace gp {
 
         private:
 
-            using non_cost_type = std::remove_const_t<T>;
+            using non_const_type = std::remove_const_t<T>;
 
             void make_self_ptr() {
                 if constexpr (std::is_base_of< enable_self_graph_ptr<T>, T>::value) {
@@ -148,11 +148,11 @@ namespace gp {
 
             void release() {
                 if (pool_ && v_)
-                    pool_->graph_.remove_edge(u_, const_cast<non_cost_type*>(v_));
+                    pool_->graph_.remove_edge(u_, const_cast<non_const_type*>(v_));
             }
 
             void grab() {
-                pool_->graph_.insert_edge(u_, const_cast<non_cost_type*>(v_));
+                pool_->graph_.insert_edge(u_, const_cast<non_const_type*>(v_));
             }
 
             graph_ptr(graph_pool* gp, void* u, T* v) : pool_(gp), u_(u), v_(v) {
