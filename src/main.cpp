@@ -12,11 +12,14 @@ template <typename T>
 using graph_ptr = graph_pool::graph_ptr<T>;
 
 template <typename T>
+using graph_root_ptr = graph_pool::graph_root_ptr<T>;
+
+template <typename T>
 using enable_self_graph_ptr = graph_pool::enable_self_graph_ptr<T>;
 
 struct A : public enable_self_graph_ptr<A> {
     A(std::string msg, int num) :  msg_(msg), num_(num) { }
-    void set(graph_ptr<B>& b_ptr) { b_ptr_ = graph_ptr<B>(self_graph_ptr(), b_ptr); }
+    void set(graph_root_ptr<B>& b_ptr) { b_ptr_ = graph_ptr<B>(self_graph_ptr(), b_ptr); }
     ~A() { std::cout << "  destroying A{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
@@ -26,7 +29,7 @@ private:
 
 struct B : public enable_self_graph_ptr<B> {
     B(std::string msg) : msg_(msg) { }
-    void set(graph_ptr<C>& c_ptr) { c_ptr_ = graph_ptr<C>( self_graph_ptr(), c_ptr ); }
+    void set(graph_root_ptr<C>& c_ptr) { c_ptr_ = graph_ptr<C>( self_graph_ptr(), c_ptr ); }
     ~B() { std::cout << "  destroying B{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
@@ -35,7 +38,7 @@ private:
 
 struct C : public enable_self_graph_ptr<C> {
     C(std::string msg) : msg_(msg) { }
-    void set( graph_ptr<A>& a_ptr) {  a_ptr_ = graph_ptr<A>(self_graph_ptr(), a_ptr); }
+    void set(graph_root_ptr<A>& a_ptr) {  a_ptr_ = graph_ptr<A>(self_graph_ptr(), a_ptr); }
     ~C() { std::cout << "  destroying C{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
@@ -44,11 +47,11 @@ private:
 
 
 
-graph_ptr<A> make_cycle(graph_pool& p, std::string a_msg, std::string b_msg, std::string c_msg) {
+graph_root_ptr<A> make_cycle(graph_pool& p, std::string a_msg, std::string b_msg, std::string c_msg) {
 
-    graph_ptr<A> a = p.make_root<A>(a_msg, 42);
-    graph_ptr<B> b = p.make_root<B>(b_msg);
-    graph_ptr<C> c = p.make_root<C>(c_msg);
+    auto a = p.make_root<A>(a_msg, 42);
+    auto b = p.make_root<B>(b_msg);
+    auto c = p.make_root<C>(c_msg);
 
     a->set(b);
     b->set(c);

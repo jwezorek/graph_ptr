@@ -1,8 +1,12 @@
 #include "graph_ptr.hpp"
 
-void gp::detail::graph::insert_edge(void* u, void* v) {
-    auto& count = get_or_create_edge(u, v);
-    ++count;
+void gp::detail::graph::insert_edge(void* ptr_u, void* ptr_v) {
+    auto& u = get_or_create(ptr_u);
+    auto& v = get_or_create(ptr_v);
+    auto iter = u.find(ptr_v);
+    if (iter == u.end()) {
+        u.insert(ptr_v);
+    }
 }
 
 void gp::detail::graph::remove_edge(void* u, void* v) {
@@ -11,16 +15,12 @@ void gp::detail::graph::remove_edge(void* u, void* v) {
         return;
     auto& a_list = i->second;
     auto j = a_list.find(v);
-    if (j == a_list.end())
-        return;
-    if (--(j->second) == 0) {
+    if (j != a_list.end())
         a_list.erase(j);
-    }
 }
 
-std::unordered_set<void*> gp::detail::graph::collect() {
+std::unordered_set<void*> gp::detail::graph::collect(const std::unordered_map<void*, int> roots) {
     std::unordered_set<void*> live;
-    const auto& roots = impl_.at(nullptr);
     for (auto [root, count] : roots) {
         find_live_set(root, live);
     }
@@ -45,17 +45,6 @@ gp::detail::graph::adj_list& gp::detail::graph::get_or_create(void* v) {
     }
 }
 
-int& gp::detail::graph::get_or_create_edge(void* ptr_u, void* ptr_v) {
-    auto& u = get_or_create(ptr_u);
-    auto& v = get_or_create(ptr_v);
-    auto iter = u.find(ptr_v);
-    if (iter != u.end()) {
-        return iter->second;
-    } else {
-        return create_mapping(u, ptr_v);
-    }
-}
-
 void gp::detail::graph::find_live_set(void* root, std::unordered_set<void*>& live) {
     std::stack<void*> stack;
     stack.push(root);
@@ -68,7 +57,7 @@ void gp::detail::graph::find_live_set(void* root, std::unordered_set<void*>& liv
         live.insert(current);
 
         const auto& neighbors = impl_.at(current);
-        for (const auto& [neighbor, count] : neighbors) {
+        for (const auto& neighbor : neighbors) {
             stack.push(neighbor);
         }
     }
