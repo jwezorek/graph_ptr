@@ -41,7 +41,9 @@ gp::detail::graph::adj_list& gp::detail::graph::get_or_create(void* v) {
     if (iter != impl_.end()) {
         return iter->second;
     } else {
-        return create_mapping(impl_, v);
+        return impl_.insert(
+            std::pair<void*, gp::detail::graph::adj_list>{ v, {} }
+        ).first->second;
     }
 }
 

@@ -24,16 +24,6 @@ namespace gp {
         private:
 
             using adj_list = std::unordered_set<void*>;
-
-            // insert an item of type T, default constructed, into a map mapping void*s to Ts
-            // and return a reference to the T in the map...
-            template <typename T>
-            static T& create_mapping(std::unordered_map<void*, T>& m, void* key) {
-                return m.insert(
-                    std::pair<void*, T>{ key, {} }
-                ).first->second;
-            }
-
             adj_list& get_or_create(void* v);
             void find_live_set(void* root, std::unordered_set<void*>& live);
 
@@ -93,25 +83,10 @@ namespace gp {
             {
             }
 
-            template<typename U>
-            graph_ptr(const graph_ptr<U>& u, const graph_ptr& v) :
-                graph_ptr(u.pool_, u.v_, v.v_) 
-            {  }
-
-            template<typename U>
-            graph_ptr(const graph_ptr<U>& u, const graph_root_ptr<T>& v) :
-                graph_ptr(u.pool_, u.v_, v.v_) 
-            { }
-
-            template<typename U>
-            graph_ptr(const graph_root_ptr<U>& u, const graph_root_ptr<T>& v) :
-                graph_ptr(u.pool_, u.v_, v.v_) {
-            }
-
-            template<typename U>
-            graph_ptr(const graph_root_ptr<U>& u, const graph_ptr<T>& v) :
-                graph_ptr(u.pool_, u.v_, v.v_) {
-            }
+            template<typename A, typename B>
+            graph_ptr(const A& u, const B& v) :
+                graph_ptr(u.pool_, u.v_, v.v_)
+            {}
 
             graph_ptr(const graph_ptr& other) = delete;
 
