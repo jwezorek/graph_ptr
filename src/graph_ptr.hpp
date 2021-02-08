@@ -79,7 +79,7 @@ namespace gp {
             friend class graph_pool;
         public:
             graph_ptr() : 
-                u_{ nullptr }, base_graph_ptr()
+                u_{ nullptr }, base_graph_ptr<T>()
             {
             }
 
@@ -91,7 +91,7 @@ namespace gp {
             graph_ptr(const graph_ptr& other) = delete;
 
             graph_ptr(graph_ptr&& other) noexcept:
-                    pool_{ other.pool_ }, u_{ other.u_ }, v_{ other.v_ } { 
+                    u_{ other.u_ }, base_graph_ptr<T>{ other.pool_, other.v_ } {
                 other.wipe();
             }
 
@@ -101,9 +101,9 @@ namespace gp {
                 if (&other != this) {
                     release();
 
-                    pool_ = other.pool_;
+                    this->pool_ = other.pool_;
                     u_ = other.u_;
-                    v_ = other.v_;
+                    this->v_ = other.v_;
 
                     other.wipe();
                 }
@@ -125,30 +125,30 @@ namespace gp {
 
             void make_self_ptr() {
                 if constexpr (std::is_base_of< enable_self_graph_ptr<T>, T>::value) {
-                    static_cast<enable_self_graph_ptr<T>*>(v_)->self_ = std::unique_ptr<graph_ptr<T>>(
-                        new graph_ptr<T>(pool_, v_, v_)
+                    static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_ = std::unique_ptr<graph_ptr<T>>(
+                        new graph_ptr<T>(this->pool_, this->v_, this->v_)
                     );
                 }
             }
 
             void wipe() {
-                pool_ = nullptr;
+                this->pool_ = nullptr;
                 u_ = nullptr;
-                v_ = nullptr;
+                this->v_ = nullptr;
             }
 
             void release() {
-                if (pool_ && v_)
-                    pool_->graph_.remove_edge(u_, const_cast<non_const_type*>(v_));
+                if (this->pool_ && this->v_)
+                    this->pool_->graph_.remove_edge(u_, const_cast<non_const_type*>(this->v_));
             }
 
             void grab() {
-                pool_->graph_.insert_edge(u_, const_cast<non_const_type*>(v_));
+                this->pool_->graph_.insert_edge(u_, const_cast<non_const_type*>(this->v_));
             }
 
-            graph_ptr(graph_pool* gp, void* u, T* v) : u_(u), base_graph_ptr(gp,v) {
+            graph_ptr(graph_pool* gp, void* u, T* v) : u_(u), base_graph_ptr<T>(gp,v) {
                 grab();
-                if (u_ != v_) {
+                if (u_ != this->v_) {
                     make_self_ptr();
                 }
             }
@@ -169,7 +169,7 @@ namespace gp {
             }
 
             graph_root_ptr(graph_root_ptr&& other) noexcept :
-                    base_graph_ptr(other.pool_, other.v_ ) {
+                    base_graph_ptr<T>(other.pool_, other.v_ ) {
                 other.wipe();
             }
 
@@ -177,8 +177,8 @@ namespace gp {
                 if (&other != this) {
                     release();
 
-                    pool_ = other.pool_;
-                    v_ = other.v_;
+                    this->pool_ = other.pool_;
+                    this->v_ = other.v_;
 
                     grab();
                 }
@@ -189,8 +189,8 @@ namespace gp {
                 if (&other != this) {
                     release();
 
-                    pool_ = other.pool_;
-                    v_ = other.v_;
+                    this->pool_ = other.pool_;
+                    this->v_ = other.v_;
 
                     other.wipe();
                 }
@@ -210,8 +210,8 @@ namespace gp {
 
             void make_self_ptr() {
                 if constexpr (std::is_base_of< enable_self_graph_ptr<T>, T>::value) {
-                    static_cast<enable_self_graph_ptr<T>*>(v_)->self_ = std::unique_ptr<graph_ptr<T>>(
-                        new graph_ptr<T>(pool_, v_, v_)
+                    static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_ = std::unique_ptr<graph_ptr<T>>(
+                        new graph_ptr<T>(this->pool_, this->v_, this->v_)
                     );
                 }
             }
@@ -219,20 +219,20 @@ namespace gp {
             using non_const_type = std::remove_const_t<T>;
 
             void wipe() {
-                pool_ = nullptr;
-                v_ = nullptr;
+                this->pool_ = nullptr;
+                this->v_ = nullptr;
             }
 
             void release() {
-                if (pool_ && v_)
-                    pool_->remove_root(const_cast<non_const_type*>(v_));
+                if (this->pool_ && this->v_)
+                    this->pool_->remove_root(const_cast<non_const_type*>(this->v_));
             }
 
             void grab() {
-                pool_->add_root(const_cast<non_const_type*>(v_));
+                this->pool_->add_root(const_cast<non_const_type*>(this->v_));
             }
 
-            graph_root_ptr(graph_pool* gp, T* v) : base_graph_ptr(gp , v) {
+            graph_root_ptr(graph_pool* gp, T* v) : base_graph_ptr<T>(gp , v) {
                 grab();
                 make_self_ptr();
             }
