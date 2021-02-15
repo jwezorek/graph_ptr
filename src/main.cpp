@@ -21,6 +21,7 @@ struct A : public enable_self_graph_ptr<A> {
     A(std::string msg, int num) :  msg_(msg), num_(num) { }
     void set(graph_root_ptr<B>& b_ptr) { b_ptr_ = graph_ptr<B>(self_graph_ptr(), b_ptr); }
     ~A() { std::cout << "  destroying A{ " << msg_ << " }\n"; }
+
 private:
     std::string msg_;
     graph_ptr<B> b_ptr_;
@@ -29,7 +30,9 @@ private:
 
 struct B : public enable_self_graph_ptr<B> {
     B(std::string msg) : msg_(msg) { }
-    void set(graph_root_ptr<C>& c_ptr) { c_ptr_ = graph_ptr<C>( self_graph_ptr(), c_ptr ); }
+    void set(graph_root_ptr<C>& c_ptr) { 
+        c_ptr_ = graph_ptr<C>( self_graph_ptr(), c_ptr ); 
+    }
     ~B() { std::cout << "  destroying B{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
@@ -56,6 +59,8 @@ graph_root_ptr<A> make_cycle(graph_pool& p, std::string a_msg, std::string b_msg
     a->set(b);
     b->set(c);
     c->set(a);
+
+    auto c_a = graph_pool::const_pointer_cast<const A>(a);
 
     return a;
 }

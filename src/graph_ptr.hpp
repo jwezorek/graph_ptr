@@ -281,8 +281,8 @@ namespace gp {
         }
 
         template<typename T, typename U>
-        static graph_ptr<T> const_pointer_cast(graph_ptr<U> p) {
-            return  graph_ptr<T>(p.pool_, p.u_, const_cast<std::remove_const_t<U>*>(p.v_));
+        static graph_root_ptr<T> const_pointer_cast(const graph_root_ptr<U>& p) {
+            return  graph_root_ptr<T>(p.pool_, const_cast<std::remove_const_t<U>*>(p.v_));
         }
 
     private:
