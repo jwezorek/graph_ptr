@@ -19,7 +19,7 @@ namespace gp {
 
             void insert_edge(void* u, void* v);
             void remove_edge(void* u, void* v);
-            std::unordered_set<void*> collect(const std::unordered_map<void*,int> roots);
+            std::unordered_set<void*> collect(const std::unordered_map<void*, int> roots);
 
         private:
 
@@ -32,14 +32,14 @@ namespace gp {
 
     }
 
-    template<typename... Ts> 
+    template<typename... Ts>
     class graph_pool {
 
     public:
 
         template<typename T>
         class base_graph_ptr;
-        
+
         template<typename T>
         class graph_ptr;
 
@@ -78,7 +78,10 @@ namespace gp {
         class graph_ptr : public base_graph_ptr<T> {
             friend class graph_pool;
         public:
-            graph_ptr() : 
+
+            using value_type = T;
+
+            graph_ptr() :
                 u_{ nullptr }, base_graph_ptr<T>()
             {
             }
@@ -90,14 +93,18 @@ namespace gp {
 
             graph_ptr(const graph_ptr& other) = delete;
 
-            graph_ptr(graph_ptr&& other) noexcept:
-                    u_{ other.u_ }, base_graph_ptr<T>{ other.pool_, other.v_ } {
+            graph_ptr(graph_ptr&& other) noexcept :
+                u_{ other.u_ }, base_graph_ptr<T>{ other.pool_, other.v_ } {
                 other.wipe();
+            }
+
+            bool operator==(const graph_ptr& other) const {
+                return u_ == other.u_ && v_ == other.v_;
             }
 
             graph_ptr& operator=(const graph_ptr& other) = delete;
 
-            graph_ptr& operator=( graph_ptr&& other) noexcept {
+            graph_ptr& operator=(graph_ptr&& other) noexcept {
                 if (&other != this) {
                     release();
 
@@ -115,6 +122,8 @@ namespace gp {
                 wipe();
             }
 
+            explicit operator bool() const { return v_; }
+
             ~graph_ptr() {
                 release();
             }
@@ -125,9 +134,12 @@ namespace gp {
 
             void make_self_ptr() {
                 if constexpr (std::is_base_of< enable_self_graph_ptr<T>, T>::value) {
-                    static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_ = std::unique_ptr<graph_ptr<T>>(
-                        new graph_ptr<T>(this->pool_, this->v_, this->v_)
-                    );
+                    std::unique_ptr<graph_ptr<T>>& self_ptr = static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_;
+                    if (!self_ptr.get()) {
+                        static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_ = std::unique_ptr<graph_ptr<T>>(
+                            new graph_ptr<T>(this->pool_, this->v_, this->v_)
+                            );
+                    }
                 }
             }
 
@@ -146,7 +158,7 @@ namespace gp {
                 this->pool_->graph_.insert_edge(u_, const_cast<non_const_type*>(this->v_));
             }
 
-            graph_ptr(graph_pool* gp, void* u, T* v) : u_(u), base_graph_ptr<T>(gp,v) {
+            graph_ptr(graph_pool* gp, void* u, T* v) : u_(u), base_graph_ptr<T>(gp, v) {
                 grab();
                 if (u_ != this->v_) {
                     make_self_ptr();
@@ -160,7 +172,10 @@ namespace gp {
         class graph_root_ptr : public base_graph_ptr<T> {
             friend class graph_pool;
         public:
-            graph_root_ptr() 
+
+            using value_type = T;
+
+            graph_root_ptr()
             {
             }
 
@@ -168,9 +183,17 @@ namespace gp {
                 graph_root_ptr(v.pool_, v.v_) {
             }
 
+            graph_root_ptr(const graph_ptr<T>& v) :
+                graph_root_ptr(v.pool_, v.v_) {
+            }
+
             graph_root_ptr(graph_root_ptr&& other) noexcept :
-                    base_graph_ptr<T>(other.pool_, other.v_ ) {
+                base_graph_ptr<T>(other.pool_, other.v_) {
                 other.wipe();
+            }
+
+            bool operator==(const graph_root_ptr& other) const {
+                return v_ == other.v_;
             }
 
             graph_root_ptr& operator=(const graph_root_ptr& other) {
@@ -197,6 +220,8 @@ namespace gp {
                 return *this;
             }
 
+            explicit operator bool() const { return v_; }
+
             void reset() {
                 release();
                 wipe();
@@ -210,9 +235,12 @@ namespace gp {
 
             void make_self_ptr() {
                 if constexpr (std::is_base_of< enable_self_graph_ptr<T>, T>::value) {
-                    static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_ = std::unique_ptr<graph_ptr<T>>(
-                        new graph_ptr<T>(this->pool_, this->v_, this->v_)
-                    );
+                    std::unique_ptr<graph_ptr<T>>& self_ptr = static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_;
+                    if (!self_ptr.get()) {
+                        static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_ = std::unique_ptr<graph_ptr<T>>(
+                            new graph_ptr<T>(this->pool_, this->v_, this->v_)
+                            );
+                    }
                 }
             }
 
@@ -232,7 +260,7 @@ namespace gp {
                 this->pool_->add_root(const_cast<non_const_type*>(this->v_));
             }
 
-            graph_root_ptr(graph_pool* gp, T* v) : base_graph_ptr<T>(gp , v) {
+            graph_root_ptr(graph_pool* gp, T* v) : base_graph_ptr<T>(gp, v) {
                 grab();
                 make_self_ptr();
             }
@@ -256,7 +284,7 @@ namespace gp {
 
         void collect() {
             auto live_set = graph_.collect(roots_);
-            apply_to_pools(pools_, 
+            apply_to_pools(pools_,
                 [&live_set](auto& pool) {
                     pool.erase(
                         std::remove_if(pool.begin(), pool.end(),
@@ -265,11 +293,11 @@ namespace gp {
                             }
                         ),
                         pool.end()
-                    );
+                                );
                 }
             );
         }
-        
+
         size_t size() const {
             size_t sz = 0;
             apply_to_pools(pools_,
@@ -288,7 +316,7 @@ namespace gp {
     private:
 
         template<size_t I = 0, typename F, typename T>
-        static void apply_to_pools(T& t, F func)  {
+        static void apply_to_pools(T& t, F func) {
             auto& pool = std::get<I>(t);
             func(pool);
             if constexpr (I + 1 != std::tuple_size<T>::value)
