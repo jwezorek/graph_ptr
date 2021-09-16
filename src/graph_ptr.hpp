@@ -99,7 +99,7 @@ namespace gp {
             }
 
             bool operator==(const graph_ptr& other) const {
-                return u_ == other.u_ && v_ == other.v_;
+                return u_ == other.u_ && this->v_ == other.v_;
             }
 
             graph_ptr& operator=(const graph_ptr& other) = delete;
@@ -122,7 +122,7 @@ namespace gp {
                 wipe();
             }
 
-            explicit operator bool() const { return v_; }
+            explicit operator bool() const { return this->v_; }
 
             ~graph_ptr() {
                 release();
@@ -193,7 +193,7 @@ namespace gp {
             }
 
             bool operator==(const graph_root_ptr& other) const {
-                return v_ == other.v_;
+                return this->v_ == other.v_;
             }
 
             graph_root_ptr& operator=(const graph_root_ptr& other) {
@@ -220,7 +220,7 @@ namespace gp {
                 return *this;
             }
 
-            explicit operator bool() const { return v_; }
+            explicit operator bool() const { return this->v_; }
 
             void reset() {
                 release();
@@ -327,7 +327,8 @@ namespace gp {
             auto it = roots_.find(root);
             if (it != roots_.end()) {
                 it->second++;
-            } else {
+            }
+            else {
                 roots_[root] = 1;
             }
         }

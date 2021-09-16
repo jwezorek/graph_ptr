@@ -64,4 +64,3 @@ void gp::detail::graph::find_live_set(void* root, std::unordered_set<void*>& liv
         }
     }
 }
-
