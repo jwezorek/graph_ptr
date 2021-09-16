@@ -17,9 +17,11 @@ using graph_root_ptr = graph_pool::graph_root_ptr<T>;
 template <typename T>
 using enable_self_graph_ptr = graph_pool::enable_self_graph_ptr<T>;
 
-struct A : public enable_self_graph_ptr<A> {
+
+struct A {
+    A() {}
     A(std::string msg, int num) :  msg_(msg), num_(num) { }
-    void set(graph_root_ptr<B>& b_ptr) { b_ptr_ = graph_ptr<B>(self_graph_ptr(), b_ptr); }
+    void set(graph_root_ptr<A>& self, graph_root_ptr<B>& b_ptr) { b_ptr_ = graph_ptr<B>(self, b_ptr); }
     ~A() { std::cout << "  destroying A{ " << msg_ << " }\n"; }
 
 private:
@@ -28,10 +30,12 @@ private:
     int num_;
 };
 
-struct B : public enable_self_graph_ptr<B> {
+
+struct B  {
+    B() {}
     B(std::string msg) : msg_(msg) { }
-    void set(graph_root_ptr<C>& c_ptr) { 
-        c_ptr_ = graph_ptr<C>( self_graph_ptr(), c_ptr ); 
+    void set(graph_root_ptr<B>& self, graph_root_ptr<C>& c_ptr) {
+        c_ptr_ = graph_ptr<C>(self, c_ptr );
     }
     ~B() { std::cout << "  destroying B{ " << msg_ << " }\n"; }
 private:
@@ -39,9 +43,10 @@ private:
     graph_ptr<C> c_ptr_;
 };
 
-struct C : public enable_self_graph_ptr<C> {
+struct C  {
+    C() {}
     C(std::string msg) : msg_(msg) { }
-    void set(graph_root_ptr<A>& a_ptr) {  a_ptr_ = graph_ptr<A>(self_graph_ptr(), a_ptr); }
+    void set(graph_root_ptr<C>& self, graph_root_ptr<A>& a_ptr) {  a_ptr_ = graph_ptr<A>(self, a_ptr); }
     ~C() { std::cout << "  destroying C{ " << msg_ << " }\n"; }
 private:
     std::string msg_;
@@ -53,21 +58,24 @@ private:
 graph_root_ptr<A> make_cycle(graph_pool& p, std::string a_msg, std::string b_msg, std::string c_msg) {
 
     auto a = p.make_root<A>(a_msg, 42);
+
+    /*
     auto b = p.make_root<B>(b_msg);
     auto c = p.make_root<C>(c_msg);
-
-    a->set(b);
-    b->set(c);
-    c->set(a);
+    a->set(a, b);
+    b->set(b, c);
+    c->set(c, a);
 
     auto c_a = graph_pool::const_pointer_cast<const A>(a);
-
+    */
     return a;
 }
+
 
 int main() { 
     std::cout << "making graph\n";
     {
+        /*
         graph_pool p;
 
         {
@@ -88,6 +96,7 @@ int main() {
         }
 
         std::cout << "graph pool leaving scope...\n";
+        */
     }
 
     std::cout << "done\n";

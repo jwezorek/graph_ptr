@@ -1,15 +1,17 @@
 #include "graph_ptr.hpp"
 
-void gp::detail::graph::insert_edge(void* ptr_u, void* ptr_v) {
-    auto& u = get_or_create(ptr_u);
-    auto& v = get_or_create(ptr_v);
-    auto iter = u.find(ptr_v);
+using id_type = gp::detail::id_type;
+
+void gp::detail::graph::insert_edge(id_type id_u, id_type id_v) {
+    auto& u = get_or_create(id_u);
+    auto& v = get_or_create(id_v);
+    auto iter = u.find(id_v);
     if (iter == u.end()) {
-        u.insert(ptr_v);
+        u.insert( id_v );
     }
 }
 
-void gp::detail::graph::remove_edge(void* u, void* v) {
+void gp::detail::graph::remove_edge(id_type u, id_type v) {
     auto i = impl_.find(u);
     if (i == impl_.end())
         return;
@@ -19,8 +21,8 @@ void gp::detail::graph::remove_edge(void* u, void* v) {
         a_list.erase(j);
 }
 
-std::unordered_set<void*> gp::detail::graph::collect(const std::unordered_map<void*, int> roots) {
-    std::unordered_set<void*> live;
+std::unordered_set<id_type> gp::detail::graph::collect(const std::unordered_map<id_type, int> roots) {
+    std::unordered_set<id_type> live;
     for (auto [root, count] : roots) {
         find_live_set(root, live);
     }
@@ -36,19 +38,19 @@ std::unordered_set<void*> gp::detail::graph::collect(const std::unordered_map<vo
     return live;
 }
 
-gp::detail::graph::adj_list& gp::detail::graph::get_or_create(void* v) {
+gp::detail::graph::adj_list& gp::detail::graph::get_or_create(id_type v) {
     auto iter = impl_.find(v);
     if (iter != impl_.end()) {
         return iter->second;
     } else {
         return impl_.insert(
-            std::pair<void*, gp::detail::graph::adj_list>{ v, {} }
+            std::pair<id_type, gp::detail::graph::adj_list>{ v, {} }
         ).first->second;
     }
 }
 
-void gp::detail::graph::find_live_set(void* root, std::unordered_set<void*>& live) {
-    std::stack<void*> stack;
+void gp::detail::graph::find_live_set(id_type root, std::unordered_set<id_type>& live) {
+    std::stack<id_type> stack;
     stack.push(root);
     while (!stack.empty()) {
         auto current = stack.top();
