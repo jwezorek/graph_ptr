@@ -426,6 +426,13 @@ namespace gp {
             return  graph_root_ptr<T>( p.pool_, p.v_id_ );
         }
 
+        graph_pool(size_t initial_capacity = 1024) {
+            apply_to_pools(
+                pools_, 
+                [&](auto& s) {s.initialize(id_, initial_capacity); }
+            );
+        }
+
     private:
 
         template<size_t I = 0, typename F, typename T>
@@ -457,6 +464,7 @@ namespace gp {
             return std::get<detail::slab<T>>(pools_);
         }
 
+        detail::id_type id_;
         std::unordered_map<detail::id_type, int> roots_;
         detail::graph graph_;
         std::tuple<detail::slab<Ts>...> pools_;
