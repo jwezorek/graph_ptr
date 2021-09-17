@@ -33,14 +33,11 @@ namespace gp {
             template<typename... Args>
             id_type make(Args&&... args) { 
                 slab_.emplace_back(std::forward<Args>(args)...);
-                return 0;
-                /*
                 auto* obj_ptr = &(slab_.back());
                 auto obj_id = ++(*id_ptr_);
                 id_to_obj_[obj_id] = obj_ptr;
                 obj_to_id_[obj_ptr] = obj_id;
                 return obj_id;
-                */
             }
 
             const T* get(id_type obj_id) const {
@@ -51,20 +48,21 @@ namespace gp {
                 return id_to_obj_.at(obj_id);
             }
 
-            void collect(const std::unordered_set<id_type>& live_set) {
+            void collect(const std::unordered_set<id_type>& live_set) { 
                 if (slab_.empty())
                     return;
-
+                
                 auto front = slab_.begin();
                 auto back = std::prev(slab_.end());
-
-                while (front <= back) {
+                
+                while (front <= back) { 
                     bool back_is_alive = delete_dead_from_back(live_set, back);
-                    if (back_is_alive && back > front && !is_live(live_set, front))
+                    if (back_is_alive && back > front && !is_live(live_set, front)) {
                         swap_items(front, back);
-                    front++;
+                    }
+                    front++; 
                 }
-                slab_.resize(id_to_obj_.size());
+                slab_.resize(id_to_obj_.size()); 
             }
 
             bool contains(id_type obj_id) const {
@@ -93,7 +91,7 @@ namespace gp {
                 T* j_ptr = &(*j);
                 auto j_id = obj_to_id_.at(j_ptr);
 
-                std::swap(*i, *j);
+                std::swap( *i, *j );
                 std::swap(obj_to_id_[i_ptr], obj_to_id_[j_ptr]);
                 std::swap(id_to_obj_[i_id], id_to_obj_[j_id]); 
             }

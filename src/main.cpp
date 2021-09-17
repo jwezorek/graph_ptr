@@ -21,6 +21,8 @@ using enable_self_graph_ptr = graph_pool::enable_self_graph_ptr<T>;
 struct A {
     A() {}
     A(std::string msg, int num) :  msg_(msg), num_(num) { }
+    A(A&&) = default;
+    A& operator=(A && a) = default;
     void set(graph_root_ptr<A>& self, graph_root_ptr<B>& b_ptr) { b_ptr_ = graph_ptr<B>(self, b_ptr); }
     ~A() { std::cout << "  destroying A{ " << msg_ << " }\n"; }
 
@@ -34,6 +36,8 @@ private:
 struct B  {
     B() {}
     B(std::string msg) : msg_(msg) { }
+    B(B&&) = default;
+    B& operator=(B&& a) = default;
     void set(graph_root_ptr<B>& self, graph_root_ptr<C>& c_ptr) {
         c_ptr_ = graph_ptr<C>(self, c_ptr );
     }
@@ -46,6 +50,8 @@ private:
 struct C  {
     C() {}
     C(std::string msg) : msg_(msg) { }
+    C(C&&) noexcept = default;
+    C& operator=(C&& a) = default;
     void set(graph_root_ptr<C>& self, graph_root_ptr<A>& a_ptr) {  a_ptr_ = graph_ptr<A>(self, a_ptr); }
     ~C() { std::cout << "  destroying C{ " << msg_ << " }\n"; }
 private:
@@ -59,7 +65,7 @@ graph_root_ptr<A> make_cycle(graph_pool& p, std::string a_msg, std::string b_msg
 
     auto a = p.make_root<A>(a_msg, 42);
 
-    /*
+
     auto b = p.make_root<B>(b_msg);
     auto c = p.make_root<C>(c_msg);
     a->set(a, b);
@@ -67,7 +73,7 @@ graph_root_ptr<A> make_cycle(graph_pool& p, std::string a_msg, std::string b_msg
     c->set(c, a);
 
     auto c_a = graph_pool::const_pointer_cast<const A>(a);
-    */
+
     return a;
 }
 
@@ -75,9 +81,9 @@ graph_root_ptr<A> make_cycle(graph_pool& p, std::string a_msg, std::string b_msg
 int main() { 
     std::cout << "making graph\n";
     {
-        /*
+        
         graph_pool p;
-
+       
         {
             auto cycle1 = make_cycle(p, "foo", "bar", "mumble");
             auto cycle2 = make_cycle(p, "foo2", "bar2", "mumble2");
@@ -90,13 +96,13 @@ int main() {
             std::cout << "okay, collect...\n";
 
             p.collect();
-
+            
             std::cout << "after collecting, count is  " << p.size() << ".\n";
             std::cout << "cycles leaving scope...\n";
         }
 
         std::cout << "graph pool leaving scope...\n";
-        */
+        
     }
 
     std::cout << "done\n";
