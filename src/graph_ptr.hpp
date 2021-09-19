@@ -166,12 +166,15 @@ namespace gp {
             friend class graph_ptr<T>;
             friend class graph_root_ptr<T>;
         public:
+            enable_self_graph_ptr() {
+                self_ = nullptr;
+            }
             const graph_ptr<T>& self_graph_ptr() const {
-                return {}; // *self_;
+                return  *self_; 
             }
 
         private:
-            //std::unique_ptr<graph_ptr<T>> self_; 
+            std::unique_ptr<graph_ptr<T>> self_; 
         };
 
         template<typename T>
@@ -250,7 +253,7 @@ namespace gp {
 
             using non_const_type = std::remove_const_t<T>;
 
-            void make_self_ptr() { /*
+            void make_self_ptr() {
                 if constexpr (std::is_base_of< enable_self_graph_ptr<T>, T>::value) {
                     T* ptr = this->get(); 
                     std::unique_ptr<graph_ptr<T>>& self_ptr = static_cast<enable_self_graph_ptr<T>*>(ptr)->self_;
@@ -260,7 +263,6 @@ namespace gp {
                         );
                     }
                 }
-                */
             }
 
             void wipe() {
@@ -354,16 +356,15 @@ namespace gp {
         private:
 
             void make_self_ptr() {
-                /*
                 if constexpr (std::is_base_of< enable_self_graph_ptr<T>, T>::value) {
-                    std::unique_ptr<graph_ptr<T>>& self_ptr = static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_;
+                    T* ptr = this->get();
+                    std::unique_ptr<graph_ptr<T>>& self_ptr = static_cast<enable_self_graph_ptr<T>*>(ptr)->self_;
                     if (!self_ptr.get()) {
-                        static_cast<enable_self_graph_ptr<T>*>(this->v_)->self_ = std::unique_ptr<graph_ptr<T>>(
-                            new graph_ptr<T>(this->pool_, this->v_, this->v_)
+                        static_cast<enable_self_graph_ptr<T>*>(ptr)->self_ = std::unique_ptr<graph_ptr<T>>(
+                            new graph_ptr<T>(this->pool_, this->v_id_, this->v_id_)
                             );
                     }
                 }
-                */
             }
 
             using non_const_type = std::remove_const_t<T>;
