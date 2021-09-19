@@ -1,6 +1,7 @@
 #include "graph_ptr.hpp"
 #include <iostream>
 #include <string>
+#include <cstdlib>
 
 struct A;
 struct B;
@@ -77,13 +78,13 @@ graph_root_ptr<A> make_cycle(graph_pool& p, std::string a_msg, std::string b_msg
     return a;
 }
 
+void basic_test() {
 
-int main() { 
     std::cout << "making graph\n";
     {
-        
+
         graph_pool p;
-       
+
         {
             auto cycle1 = make_cycle(p, "foo", "bar", "mumble");
             auto cycle2 = make_cycle(p, "foo2", "bar2", "mumble2");
@@ -96,16 +97,23 @@ int main() {
             std::cout << "okay, collect...\n";
 
             p.collect();
-            
+
             std::cout << "after collecting, count is  " << p.size() << ".\n";
             std::cout << "cycles leaving scope...\n";
         }
 
         std::cout << "graph pool leaving scope...\n";
-        
+
     }
 
     std::cout << "done\n";
 
+}
+
+
+
+int main() { 
+    std::srand(17);
+    basic_test();
     return 0;
 }
