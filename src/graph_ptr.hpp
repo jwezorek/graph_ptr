@@ -34,7 +34,8 @@ namespace gp {
             id_type make(Args&&... args) { 
                 slab_.emplace_back(std::forward<Args>(args)...);
                 auto* obj_ptr = &(slab_.back());
-                auto obj_id = ++(*id_ptr_);
+                auto obj_id = *id_ptr_;
+                (*id_ptr_)++;
                 id_to_obj_[obj_id] = obj_ptr;
                 obj_to_id_[obj_ptr] = obj_id;
                 return obj_id;
@@ -189,7 +190,7 @@ namespace gp {
             const T& operator*()  const { return *get(); }
             T* get() { return pool_->get_slab<T>().get(v_id_); }
             const T* get() const { return pool_->get_slab<T>().get(v_id_); }
-            explicit operator bool() const { return v_; }
+            explicit operator bool() const { return v_id_; }
         protected:
             graph_pool* pool_;
             detail::id_type v_id_;
@@ -323,7 +324,7 @@ namespace gp {
                     release();
 
                     this->pool_ = other.pool_;
-                    this->v_ = other.v_;
+                    this->v_id_ = other.v_id_;
 
                     grab();
                 }
@@ -335,14 +336,14 @@ namespace gp {
                     release();
 
                     this->pool_ = other.pool_;
-                    this->v_ = other.v_;
+                    this->v_id_ = other.v_id_;
 
                     other.wipe();
                 }
                 return *this;
             }
 
-            explicit operator bool() const { return v_; }
+            explicit operator bool() const { return v_id_; }
 
             void reset() {
                 release();
@@ -428,6 +429,7 @@ namespace gp {
         }
 
         graph_pool(size_t initial_capacity = 1024) {
+            id_ = 0;
             apply_to_pools(
                 pools_, 
                 [&](auto& s) {s.initialize(id_, initial_capacity); }
