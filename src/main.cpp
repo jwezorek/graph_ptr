@@ -6,14 +6,24 @@
 #include <tuple>
 #include <typeinfo>
 #include <typeindex>
+#include <unordered_map>
+#include <unordered_set>
+#include <stack>
 
-namespace gptr {
+namespace gptr {/*
     template <typename T>
     using should_collect_cb = std::function<bool(const T&)>;
 
     template <typename T>
     using on_moved_cb = std::function<void(T&)>;
-    
+    */
+
+    template <typename T>
+    using should_collect_cb = bool(*)(const T&);
+
+    template <typename T>
+    using on_moved_cb = void(*)(T&);
+
     template<typename T>
     class slab {
     public:
@@ -177,11 +187,10 @@ namespace gptr {
 
     struct cell {
         void* value_;
-        size_t ref_count_;
         bool gc_mark_;
         std::unordered_map<obj_id_t, size_t> adj_list_;
 
-        cell() : value_(nullptr), ref_count_(0), gc_mark_(false)
+        cell(void* value = nullptr) : value_(value), gc_mark_(false)
         {}
     };
     
@@ -213,20 +222,29 @@ namespace gptr {
             auto iter = type_to_slab_.find(type_key);
 
             if (iter == type_to_slab_.end()) {
-                any_slab s(
-                    initial_capacity_,
-                    should_collect_cb< slab_item_t<T>>([](const slab_item_t<T>& si) {
-                        return si.cell_ptr->gc_mark_;
-                    }),
-                    on_moved_cb< slab_item_t<T>>([](slab_item_t<T>& si) {
-                        si.cell_ptr->value_ = &(si.value);
-                    })
+                auto [i, success] = type_to_slab_.insert(
+                    std::pair<std::type_index, any_slab>(
+                        type_key, 
+                        any_slab(
+                            initial_capacity_,
+                            should_collect_cb< slab_item_t<T>>(
+                                [](const slab_item_t<T>& si) {
+                                    return si.cell_ptr->gc_mark_;
+                                }
+                            ),
+                            on_moved_cb< slab_item_t<T>>(
+                                [](slab_item_t<T>& si) {
+                                    si.cell_ptr->value_ = &(si.value);
+                                }
+                            )
+                        )
+                    )
                 );
-                auto [i, success] = type_to_slab_.insert(std::pair<std::type_index, any_slab>(type_key, std::move(s)));
                 iter = i;
             }
             any_slab& objs = iter->second;
             slab_item_t<T>* new_slab_item_ptr = objs.emplace<slab_item_t<T>>(cell_ptr, std::forward<Args>(args)...);
+            cell_ptr->value_ = &(new_slab_item_ptr->value);
             return &(new_slab_item_ptr->value);
         }
 
@@ -250,6 +268,274 @@ namespace gptr {
         size_t initial_capacity_;
         std::unordered_map<std::type_index, any_slab> type_to_slab_;
     };
+
+    using obj_id_t = size_t;
+
+    template<typename T>
+    class graph_ptr;
+
+    class ptr_graph;
+
+    template<typename T>
+    class graph_root_ptr  {
+        friend ptr_graph;
+    public:
+
+        using value_type = T;
+
+        graph_root_ptr() : obj_id_t(0), ptr_graph_(nullptr) {
+        }
+
+        graph_root_ptr(const graph_root_ptr& v) :
+            graph_root_ptr(v.ptr_graph_, v.v_) {
+        }
+
+        graph_root_ptr(const graph_ptr<T>& v) :
+            graph_root_ptr(v.ptr_graph_, v.v_) {
+        }
+
+        graph_root_ptr(graph_root_ptr&& other) noexcept : ptr_graph_(other.ptr_graph_), v_(other.v_) {
+            other.wipe();
+        }
+
+        bool operator==(const graph_root_ptr& other) const {
+            return v_ == other.v_;
+        }
+
+        graph_root_ptr& operator=(const graph_root_ptr& other) {
+            if (&other != this) {
+                release();
+                this->ptr_graph_ = other.ptr_graph_;
+                this->v_ = other.v_;
+                grab();
+            }
+            return *this;
+        }
+
+        graph_root_ptr& operator=(graph_root_ptr&& other) noexcept {
+            if (&other != this) {
+                release();
+                this->ptr_graph_ = other.ptr_graph_;
+                this->v_ = other.v_;
+                other.wipe();
+            }
+            return *this;
+        }
+
+        const T* operator->() const { return get(); }
+        T* operator->() { return get(); }
+        T& operator*() { return *get(); }
+        const T& operator*()  const { return *get(); }
+        T* get() { return ptr_graph_->get<T>(v_); }
+        const T* get() const { return ptr_graph_->get<T>(v_); }
+        explicit operator bool() const { return v_; }
+
+        void reset() {
+            release();
+            wipe();
+        }
+
+        ~graph_root_ptr() {
+            release();
+        }
+
+    private:
+
+        using non_const_type = std::remove_const_t<T>;
+
+        void wipe() {
+            this->ptr_graph_ = nullptr;
+            this->v_ = 0;
+        }
+
+        void release() {
+            if (this->ptr_graph_ && this->v_)
+                this->ptr_graph_->remove_root(this->v_);
+        }
+
+        void grab() {
+            this->ptr_graph_->insert_root(this->v_);
+        }
+
+        graph_root_ptr(ptr_graph* gp, obj_id_t v) : ptr_graph_(gp), v_(v) {
+            grab();
+        }
+
+        obj_id_t v_;
+        ptr_graph* ptr_graph_;
+    };
+
+    template<typename T>
+    class graph_ptr {
+        friend class ptr_graph;
+    public:
+
+        using value_type = T;
+
+        graph_ptr() :
+            u_{ 0 }, v_{ 0 }, ptr_graph_(nullptr)
+        {
+        }
+
+        template<typename A, typename B>
+        graph_ptr(const A& u, const B& v) :
+            graph_ptr(u.ptr_graph_, u.v_, v.v_)
+        {}
+
+        graph_ptr(const graph_ptr& other) = delete;
+
+        graph_ptr(graph_ptr&& other) noexcept :
+            ptr_graph_(other.ptr_graph_), u_( other.u_ ), v_(other.v_) {
+            other.wipe();
+        }
+
+        bool operator==(const graph_ptr& other) const {
+            return u_ == other.u_ && v_ == other.v_;
+        }
+
+        graph_ptr& operator=(const graph_ptr& other) = delete;
+
+        graph_ptr& operator=(graph_ptr&& other) noexcept {
+            if (&other != this) {
+                release();
+
+                this->ptr_graph_ = other.ptr_graph_;
+                this->u_ = other.u_;
+                this->v_ = other.v_;
+
+                other.wipe();
+            }
+            return *this;
+        }
+
+        void reset() {
+            release();
+            wipe();
+        }
+
+        explicit operator bool() const { return v_ }
+
+        ~graph_ptr() {
+            release();
+        }
+
+    private:
+
+        using non_const_type = std::remove_const_t<T>;
+
+        void wipe() {
+            ptr_graph_ = nullptr;
+            u_ = 0;
+            v_ = 0;
+        }
+
+        void release() {
+            if (ptr_graph_ && v_)
+                ptr_graph_->remove_edge(u_, v_);
+        }
+
+        void grab() {
+            ptr_graph_->insert_edge(u_, v_);
+        }
+
+        graph_ptr(ptr_graph* pg, obj_id_t u, obj_id_t v_) : ptr_graph_(pg), u_(u), v_(v) {
+            grab();
+        }
+
+        obj_id_t u_;
+        obj_id_t v_;
+        ptr_graph* ptr_graph_;
+    };
+
+    class ptr_graph {
+
+        template<typename T>  friend class graph_root_ptr;
+
+    public:
+        ptr_graph(size_t initial_capacity) : obj_store_(initial_capacity), id_(0) {
+            id_to_cell_[0] = cell(nullptr);
+        }
+
+        template<typename T, typename... Args>
+        graph_root_ptr<T> make_root(Args&&... args) {
+            auto id = make_new_cell<T>(std::forward<Args>(args)...);
+            insert_root(id);
+            return graph_root_ptr<T>(this, id);
+        }
+
+        template<typename T, typename U, typename... Args>
+        graph_ptr<T> make(graph_ptr<U> u, Args&&... args) {
+            auto id = make_new_cell<T>(std::forward<Args>(args)...);
+            insert_edge(u.v_, id);
+            return graph_ptr(this, u.v_, id);
+        }
+
+        void collect() {
+            for (auto& [id, cell] : id_to_cell_) {
+                cell.gc_mark_ = false;
+            }
+
+            std::stack<obj_id_t> stack;
+            stack.push(0);
+            
+            while (!stack.empty()) {
+                auto id = stack.top();
+                stack.pop();
+                auto& cell = id_to_cell_[id];
+                cell.gc_mark_ = true;
+                for (const auto& [id, count] : cell.adj_list_) {
+                    stack.push(id);
+                }
+            }
+
+            obj_store_.collect();
+        }
+
+    private:
+
+        template<typename T, typename... Args>
+        obj_id_t make_new_cell(Args&&... args) {
+            auto id = ++id_;
+            auto [iter, success] = id_to_cell_.insert({ id, cell(nullptr) });
+            obj_store_.emplace<T>(&(iter->second), std::forward<Args>(args)...);
+            return id;
+        }
+
+        void insert_root(obj_id_t v) {
+            insert_edge(0, v);
+        }
+
+        void remove_root(obj_id_t v) {
+            remove_edge(0, v);
+        }
+
+        void insert_edge(obj_id_t u_id, obj_id_t v_id) {
+            cell& u = id_to_cell_[u_id];
+            auto iter = u.adj_list_.find(v_id);
+            if (iter == u.adj_list_.end()) {
+                u.adj_list_[v_id] = 1;
+            }  else {
+                iter->second++;
+            }
+        }
+
+        void remove_edge(obj_id_t u_id, obj_id_t v_id) {
+            cell& u = id_to_cell_[u_id];
+            auto iter = u.adj_list_.find(v_id);
+            iter->second--;
+            if (iter->second == 0)
+                u.adj_list_.erase(iter);
+        }
+
+        template <typename T>
+        T* get(obj_id_t v) {
+            return id_to_cell_[v].value_;
+        }
+
+        obj_id_t id_;
+        graph_obj_store obj_store_;
+        std::unordered_map<obj_id_t, cell> id_to_cell_;
+    };
     
 }
 
@@ -259,7 +545,7 @@ struct A {
     A(int i = 0, int j = 0) : a1(i), a2(j) {
     }
     ~A() noexcept {
-        std::cout << "A destructor" << "\n";
+        std::cout << "A destructor: " << a1 << " " << a2 << "\n";
     }
 };
 
@@ -273,6 +559,8 @@ struct B {
     }
 
     B(const B& b) = delete;
+    B& operator=(B&) = delete;
+
     B& operator=(B&& b) noexcept {
         foo = std::move(b.foo);
         return *this;
@@ -288,17 +576,9 @@ struct B {
 int main() {
 
     {
-        gptr::graph_obj_store gos(100);
-
-        gptr::cell c1;
-        gptr::cell c2;
-        gptr::cell c3;
-
-        gos.emplace<A>(&c1, 12, 34);
-        gos.emplace<A>(&c2, 42, 42);
-        gos.emplace<B>(&c3, "hello there");
-
-        std::cout << "destructors\n";
+        gptr::ptr_graph pg(100);
+        auto a1 = pg.make_root<A>(42, 42);
+        auto b1 = pg.make_root<B>("foobar");
     }
 
 }
