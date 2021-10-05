@@ -277,6 +277,8 @@ namespace gptr {
     template<typename T>
     class graph_root_ptr  {
         friend ptr_graph;
+        template<typename U> friend class graph_root_ptr;
+        template<typename U> friend class graph_ptr;
     public:
 
         using value_type = T;
@@ -366,6 +368,8 @@ namespace gptr {
     template<typename T>
     class graph_ptr {
         friend class ptr_graph;
+        template<typename U> friend class graph_root_ptr;
+        template<typename U> friend class graph_ptr;
     public:
 
         using value_type = T;
@@ -436,7 +440,7 @@ namespace gptr {
             ptr_graph_->insert_edge(u_, v_);
         }
 
-        graph_ptr(ptr_graph* pg, internal::obj_id_t u, internal::obj_id_t v_) : ptr_graph_(pg), u_(u), v_(v) {
+        graph_ptr(ptr_graph* pg, internal::obj_id_t u, internal::obj_id_t v) : ptr_graph_(pg), u_(u), v_(v) {
             grab();
         }
 
@@ -448,6 +452,7 @@ namespace gptr {
     class ptr_graph {
 
         template<typename T>  friend class graph_root_ptr;
+        template<typename T>  friend class graph_ptr;
 
     public:
         ptr_graph(size_t initial_capacity) : obj_store_(initial_capacity), id_(0) {
@@ -479,7 +484,11 @@ namespace gptr {
             while (!stack.empty()) {
                 auto id = stack.top();
                 stack.pop();
+
                 auto& cell = id_to_cell_[id];
+                if (cell.gc_mark)
+                    continue;
+
                 cell.gc_mark = true;
                 for (const auto& [id, count] : cell.adj_list) {
                     stack.push(id);
@@ -487,6 +496,10 @@ namespace gptr {
             }
 
             obj_store_.collect();
+        }
+
+        size_t size() const {
+            return obj_store_.size();
         }
 
     private:
@@ -535,7 +548,7 @@ namespace gptr {
 
         template <typename T>
         T* get(internal::obj_id_t v) {
-            return id_to_cell_[v].value_;
+            return static_cast<T*>(id_to_cell_[v].value);
         }
 
         internal::obj_id_t id_;
@@ -545,46 +558,69 @@ namespace gptr {
     
 }
 
+template <class T, class U, class V>
+gptr::graph_root_ptr<T> make_cycle(gptr::ptr_graph& g, std::string str1, std::string str2, std::string str3) {
+    auto t = g.make_root<T>(str1);
+    auto u = g.make_root<U>(str2);
+    auto v = g.make_root<V>(str3);
+
+    t->ptr = gptr::graph_ptr<U>(t, u);
+    u->ptr = gptr::graph_ptr<V>(u, v);
+    v->ptr = gptr::graph_ptr<T>(v, t);
+
+    return t;
+}
+
+struct B;
+struct C;
+
 struct A {
-    int a1;
-    int a2;
-    A(int i = 0, int j = 0) : a1(i), a2(j) {
-    }
-    ~A() noexcept {
-        std::cout << "A destructor: " << a1 << " " << a2 << "\n";
-    }
+
+    A(std::string str = {}) : val(str)
+    {}
+
+    std::string val;
+    gptr::graph_ptr<B> ptr;
+
 };
 
 struct B {
-    std::string foo;
 
-    B(std::string f = "") :foo(f) {
-    }
+    B(std::string str = {}) : val(str)
+    {}
 
-    B(B&& b) : foo(std::move(b.foo)) {
-    }
+    std::string val;
+    gptr::graph_ptr<C> ptr;
 
-    B(const B& b) = delete;
-    B& operator=(B&) = delete;
-
-    B& operator=(B&& b) noexcept {
-        foo = std::move(b.foo);
-        return *this;
-    }
-
-    ~B() noexcept {
-        std::cout << "B destructor: " << foo << "\n";
-    }
 };
 
+struct C {
 
+    C(std::string str = {}) : val(str)
+    {}
+
+    std::string val;
+    gptr::graph_ptr<A> ptr;
+
+};
 
 int main() {
 
     {
-        gptr::ptr_graph pg(100);
-        auto a1 = pg.make_root<A>(42, 42);
-        auto b1 = pg.make_root<B>("foobar");
+        gptr::ptr_graph g(100);
+        auto cycle1 = make_cycle<A, B, C>(g, "foo", "bar", "baz");
+        auto cycle2 = make_cycle<C, A, B>(g, "quux", "mumble", "???");
+
+        std::cout << "built a graph of 2 three node cycles...\n";
+        std::cout << "current number of objects allocated: " << g.size() << "\n\n";
+
+        std::cout << "resetting root of one of the cycles...\n";
+        cycle2.reset();
+        std::cout << "current number of objects allocated: " << g.size() << "\n\n";
+
+        std::cout << "collecting...\n";
+        g.collect();
+        std::cout << "current number of objects allocated: " << g.size() << "\n\n";
     }
 
 }
