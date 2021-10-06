@@ -366,9 +366,12 @@ namespace gptr {
 
     template<typename T>
     class graph_ptr {
+
         friend class ptr_graph;
         template<typename U> friend class graph_root_ptr;
         template<typename U> friend class graph_ptr;
+        template<typename T> friend class enable_self_ptr;
+
     public:
 
         using value_type = T;
@@ -379,9 +382,25 @@ namespace gptr {
         }
 
         template<typename A, typename B>
-        graph_ptr(const A& u, const B& v) :
+        graph_ptr(const graph_ptr<A>& u, const graph_ptr <B>& v) :
             graph_ptr(u.ptr_graph_, u.v_, v.v_)
         {}
+
+        template<typename A, typename B>
+        graph_ptr(const graph_root_ptr<A>& u, const graph_root_ptr <B>& v) :
+            graph_ptr(u.ptr_graph_, u.v_, v.v_)
+        {}
+
+        template<typename A, typename B>
+        graph_ptr(const graph_ptr<A>& u, const graph_root_ptr <B>& v) :
+            graph_ptr(u.ptr_graph_, u.v_, v.v_)
+        {}
+
+        template<typename A, typename B>
+        graph_ptr(const graph_root_ptr<A>& u, const graph_ptr <B>& v) :
+            graph_ptr(u.ptr_graph_, u.v_, v.v_)
+        {}
+
 
         graph_ptr(const graph_ptr& other) = delete;
 
@@ -408,6 +427,13 @@ namespace gptr {
             }
             return *this;
         }
+
+        const T* operator->() const { return get(); }
+        T* operator->() { return get(); }
+        T& operator*() { return *get(); }
+        const T& operator*()  const { return *get(); }
+        T* get() { return ptr_graph_->get<T>(v_); }
+        const T* get() const { return ptr_graph_->get<T>(v_); }
 
         void reset() {
             release();
@@ -448,10 +474,30 @@ namespace gptr {
         ptr_graph* ptr_graph_;
     };
 
+    template <typename T>
+    class enable_self_ptr {
+        friend ptr_graph;
+
+        public:
+            enable_self_ptr() :self_id_(0), ptr_graph_(nullptr) {
+            }
+
+            enable_self_ptr(ptr_graph& g) : ptr_graph_(&g), self_id_(g.make_new_id()) {
+            }
+        
+            graph_ptr<T> self_ptr() {
+                return graph_ptr<T>(ptr_graph_, self_id_, self_id_);
+            }
+        private:
+            internal::obj_id_t self_id_;
+            ptr_graph* ptr_graph_;
+    };
+
     class ptr_graph {
 
-        template<typename T>  friend class graph_root_ptr;
-        template<typename T>  friend class graph_ptr;
+        template<typename T> friend class graph_root_ptr;
+        template<typename T> friend class graph_ptr;
+        template<typename T> friend class enable_self_ptr;
 
     public:
         ptr_graph(size_t initial_capacity) : obj_store_(initial_capacity), id_(0) {
@@ -467,8 +513,8 @@ namespace gptr {
         }
 
         template<typename T, typename U, typename... Args>
-        graph_ptr<T> make(graph_ptr<U> u, Args&&... args) {
-            return graph_ptr(this, 
+        graph_ptr<T> make(const graph_ptr<U>& u, Args&&... args) {
+            return graph_ptr<T>(this, 
                 u.v_,
                 make_new_cell<T>(std::forward<Args>(args)...)
             );
@@ -530,10 +576,18 @@ namespace gptr {
             }
         }
 
+        internal::obj_id_t make_new_id() {
+            return ++id_;;
+        }
 
         template<typename T>
         internal::obj_id_t get_id_for_cell(const internal::obj_store_cell<T>* cell) {
-            return ++id_;
+            if constexpr (std::is_base_of< enable_self_ptr<T>, T>::value) {
+                auto esp = static_cast<const enable_self_ptr<T>*>(&(cell->value));
+                return esp->self_id_;
+            } else {
+                return make_new_id();
+            }
         }
 
         template<typename T, typename... Args>
@@ -632,6 +686,24 @@ struct C {
 
 };
 
+struct D : gptr::enable_self_ptr<D> {
+
+    D() {
+    }
+
+    D(gptr::ptr_graph& g, std::string str1, std::string str2, std::string str3) : gptr::enable_self_ptr<D>(g) {
+        a = g.make<A>(self_ptr(), str1);
+        b = g.make<B>(self_ptr(), str2);
+        c = g.make<C>(self_ptr(), str3);
+
+        c->ptr = gptr::graph_ptr<A>(c, a);
+    }
+
+    gptr::graph_ptr<A> a;
+    gptr::graph_ptr<B> b;
+    gptr::graph_ptr<C> c;
+};
+
 int main() {
 
     {
@@ -639,11 +711,15 @@ int main() {
         auto cycle1 = make_cycle<A, B, C>(g, "foo", "bar", "baz");
         auto cycle2 = make_cycle<C, A, B>(g, "quux", "mumble", "???");
 
-        std::cout << "built a graph of 2 three node cycles...\n";
+        auto d = g.make_root<D>(g, "a", "b", "c");
+
+        std::cout << "built a graph of 2 three node cycles\n";
+        std::cout << "and a root pointing to 3 nodes created with self_ptrs\n";
         std::cout << "current number of objects allocated: " << g.size() << "\n\n";
 
-        std::cout << "resetting root of one of the cycles...\n";
+        std::cout << "resetting root of one of the cycles and the tree root...\n";
         cycle2.reset();
+        d.reset();
         std::cout << "current number of objects allocated: " << g.size() << "\n\n";
 
         g.debug_graph();
