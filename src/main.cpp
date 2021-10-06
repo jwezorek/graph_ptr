@@ -91,8 +91,7 @@ namespace gptr {
                 while (!past_begin && is_dead_(*back)) {
                     if (back != impl_.begin()) {
                         --back;
-                    }
-                    else {
+                    } else {
                         past_begin = true;
                     }
                     ++num_collected;
@@ -226,7 +225,7 @@ namespace gptr {
                                 initial_capacity_,
                                 should_collect_cb< obj_store_cell<T>>(
                                     [](const obj_store_cell<T>& si) {
-                                        return si.graph_cell_ptr->gc_mark;
+                                        return !si.graph_cell_ptr->gc_mark;
                                     }
                                     ),
                                 on_moved_cb< obj_store_cell<T>>(
@@ -234,7 +233,7 @@ namespace gptr {
                                         si.graph_cell_ptr->value = &(si.value);
                                     }
                                     )
-                                        )
+                                )
                             )
                     );
                     iter = i;
@@ -461,16 +460,18 @@ namespace gptr {
 
         template<typename T, typename... Args>
         graph_root_ptr<T> make_root(Args&&... args) {
-            auto id = make_new_cell<T>(std::forward<Args>(args)...);
-            insert_root(id);
-            return graph_root_ptr<T>(this, id);
+            return graph_root_ptr<T>(
+                this, 
+                make_new_cell<T>(std::forward<Args>(args)...)
+            );
         }
 
         template<typename T, typename U, typename... Args>
         graph_ptr<T> make(graph_ptr<U> u, Args&&... args) {
-            auto id = make_new_cell<T>(std::forward<Args>(args)...);
-            insert_edge(u.v_, id);
-            return graph_ptr(this, u.v_, id);
+            return graph_ptr(this, 
+                u.v_,
+                make_new_cell<T>(std::forward<Args>(args)...)
+            );
         }
 
         void collect() {
@@ -496,13 +497,39 @@ namespace gptr {
             }
 
             obj_store_.collect();
+            collect_graph_cells();
         }
 
         size_t size() const {
             return obj_store_.size();
         }
 
+        void debug_graph() {
+            for (const auto& [id, cell] : id_to_cell_) {
+
+                if (cell.gc_mark)
+                    std::cout << "[" << id << "] => ";
+                else
+                    std::cout << " " << id << "  => ";
+                for (const auto& [neighbor, count] : cell.adj_list) {
+                    std::cout << "[ " << neighbor << ": " << count << " ] ";
+                }
+                std::cout << "\n";
+            }
+        }
+
     private:
+
+        void collect_graph_cells() {
+            for (auto i = id_to_cell_.begin(); i != id_to_cell_.end();) {
+                if (!i->second.gc_mark) {
+                    i = id_to_cell_.erase(i);
+                } else {
+                    ++i;
+                }
+            }
+        }
+
 
         template<typename T>
         internal::obj_id_t get_id_for_cell(const internal::obj_store_cell<T>* cell) {
@@ -551,9 +578,10 @@ namespace gptr {
             return static_cast<T*>(id_to_cell_[v].value);
         }
 
-        internal::obj_id_t id_;
-        internal::graph_obj_store obj_store_;
         std::unordered_map<internal::obj_id_t, internal::ptr_graph_cell> id_to_cell_;
+        internal::graph_obj_store obj_store_;
+        internal::obj_id_t id_;
+        
     };
     
 }
@@ -618,9 +646,17 @@ int main() {
         cycle2.reset();
         std::cout << "current number of objects allocated: " << g.size() << "\n\n";
 
+        g.debug_graph();
+
         std::cout << "collecting...\n";
+
         g.collect();
         std::cout << "current number of objects allocated: " << g.size() << "\n\n";
+
+        g.debug_graph();
+
+        std::cout << "\n";
+
     }
 
 }
