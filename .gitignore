@@ -13,3 +13,4 @@ _deps
 /.vs
 /.idea
 /cmake-build-debug
+/CMakeSettings.json
