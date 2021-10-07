@@ -152,26 +152,26 @@ namespace gptr {
                 )
             { }
 
-                    template<typename T, typename... Args>
-                    T* emplace(Args&&... args) {
-                        slab<T>* slab_ptr = static_cast<slab<T>*>(slab_);
-                        return slab_ptr->emplace(std::forward<Args>(args)...);
-                    }
+            template<typename T, typename... Args>
+            T* emplace(Args&&... args) {
+                slab<T>* slab_ptr = static_cast<slab<T>*>(slab_);
+                return slab_ptr->emplace(std::forward<Args>(args)...);
+            }
 
-                    void collect() {
-                        fn_(func_enum::collect, slab_);
-                    }
+            void collect() {
+                fn_(func_enum::collect, slab_);
+            }
 
-                    size_t size() const {
-                        return fn_(func_enum::get_size, slab_);
-                    }
+            size_t size() const {
+                return fn_(func_enum::get_size, slab_);
+            }
 
-                    ~any_slab() {
-                        if (slab_) {
-                            fn_(func_enum::destroy, slab_);
-                            slab_ = nullptr;
-                        }
-                    }
+            ~any_slab() {
+                if (slab_) {
+                    fn_(func_enum::destroy, slab_);
+                    slab_ = nullptr;
+                }
+            }
 
         private:
 
@@ -226,14 +226,14 @@ namespace gptr {
                                     [](const obj_store_cell<T>& si) {
                                         return !si.graph_cell_ptr->gc_mark;
                                     }
-                                    ),
+                                ),
                                 on_moved_cb< obj_store_cell<T>>(
                                     [](obj_store_cell<T>& si) {
                                         si.graph_cell_ptr->value = &(si.value);
                                     }
-                                    )
-                                        )
+                                )
                             )
+                        )
                     );
                     iter = i;
                 }
@@ -584,8 +584,7 @@ namespace gptr {
         template<typename T>
         internal::obj_id_t get_id_for_cell(const internal::obj_store_cell<T>* cell) {
             if constexpr (std::is_base_of< enable_self_ptr<T>, T>::value) {
-                auto esp = static_cast<const enable_self_ptr<T>*>(&(cell->value));
-                return esp->self_id_;
+               return cell->value.self_id_;
             } else {
                 return make_new_id();
             }
