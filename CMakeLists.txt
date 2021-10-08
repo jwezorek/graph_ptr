@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(graph_ptr_project LANGUAGES CXX)
 
 add_executable(graph_ptr 
-	src/main.cpp
-    src/graph_ptr.cpp
+   "src/main.cpp"
 )
 
 target_include_directories(graph_ptr

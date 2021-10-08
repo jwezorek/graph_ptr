@@ -1,96 +1,100 @@
-#include "graph_ptr.hpp"
 #include <iostream>
 #include <string>
+#include "graph_ptr.hpp"
 
-struct A;
+template <class T, class U, class V>
+gptr::graph_root_ptr<T> make_cycle(gptr::ptr_graph& g, std::string str1, std::string str2, std::string str3) {
+    auto t = g.make_root<T>(str1);
+    auto u = g.make_root<U>(str2);
+    auto v = g.make_root<V>(str3);
+
+    t->ptr = gptr::graph_ptr<U>(t, u);
+    u->ptr = gptr::graph_ptr<V>(u, v);
+    v->ptr = gptr::graph_ptr<T>(v, t);
+
+    return t;
+}
+
 struct B;
 struct C;
 
-using graph_pool = gp::graph_pool<A, B, C>;
+struct A {
 
-template <typename T>
-using graph_ptr = graph_pool::graph_ptr<T>;
+    A(std::string str = {}) : val(str)
+    {}
 
-template <typename T>
-using graph_root_ptr = graph_pool::graph_root_ptr<T>;
+    std::string val;
+    gptr::graph_ptr<B> ptr;
 
-template <typename T>
-using enable_self_graph_ptr = graph_pool::enable_self_graph_ptr<T>;
-
-struct A : public enable_self_graph_ptr<A> {
-    A(std::string msg, int num) :  msg_(msg), num_(num) { }
-    void set(graph_root_ptr<B>& b_ptr) { b_ptr_ = graph_ptr<B>(self_graph_ptr(), b_ptr); }
-    ~A() { std::cout << "  destroying A{ " << msg_ << " }\n"; }
-
-private:
-    std::string msg_;
-    graph_ptr<B> b_ptr_;
-    int num_;
 };
 
-struct B : public enable_self_graph_ptr<B> {
-    B(std::string msg) : msg_(msg) { }
-    void set(graph_root_ptr<C>& c_ptr) { 
-        c_ptr_ = graph_ptr<C>( self_graph_ptr(), c_ptr ); 
+struct B {
+
+    B(std::string str = {}) : val(str)
+    {}
+
+    std::string val;
+    gptr::graph_ptr<C> ptr;
+
+};
+
+struct C {
+
+    C(std::string str = {}) : val(str)
+    {}
+
+    std::string val;
+    gptr::graph_ptr<A> ptr;
+
+};
+
+struct D : gptr::enable_self_ptr<D> {
+
+    D() {
     }
-    ~B() { std::cout << "  destroying B{ " << msg_ << " }\n"; }
-private:
-    std::string msg_;
-    graph_ptr<C> c_ptr_;
+
+    D(gptr::ptr_graph& g, std::string str1, std::string str2, std::string str3) : gptr::enable_self_ptr<D>(g) {
+        a = g.make<A>(self_ptr(), str1);
+        b = g.make<B>(self_ptr(), str2);
+        c = g.make<C>(self_ptr(), str3);
+
+        c->ptr = gptr::graph_ptr<A>(c, a);
+    }
+
+    gptr::graph_ptr<A> a;
+    gptr::graph_ptr<B> b;
+    gptr::graph_ptr<C> c;
 };
 
-struct C : public enable_self_graph_ptr<C> {
-    C(std::string msg) : msg_(msg) { }
-    void set(graph_root_ptr<A>& a_ptr) {  a_ptr_ = graph_ptr<A>(self_graph_ptr(), a_ptr); }
-    ~C() { std::cout << "  destroying C{ " << msg_ << " }\n"; }
-private:
-    std::string msg_;
-    graph_ptr<A> a_ptr_;
-};
+int main() {
 
-
-
-graph_root_ptr<A> make_cycle(graph_pool& p, std::string a_msg, std::string b_msg, std::string c_msg) {
-
-    auto a = p.make_root<A>(a_msg, 42);
-    auto b = p.make_root<B>(b_msg);
-    auto c = p.make_root<C>(c_msg);
-
-    a->set(b);
-    b->set(c);
-    c->set(a);
-
-    auto c_a = graph_pool::const_pointer_cast<const A>(a);
-
-    return a;
-}
-
-int main() { 
-    std::cout << "making graph\n";
     {
-        graph_pool p;
+        gptr::ptr_graph g(100);
+        auto cycle1 = make_cycle<A, B, C>(g, "foo", "bar", "baz");
+        auto cycle2 = make_cycle<C, A, B>(g, "quux", "mumble", "???");
 
-        {
-            auto cycle1 = make_cycle(p, "foo", "bar", "mumble");
-            auto cycle2 = make_cycle(p, "foo2", "bar2", "mumble2");
+        auto d = g.make_root<D>(g, "a", "b", "c");
 
-            std::cout << "count after making two cycles that have local roots is " << p.size() << ".\n";
+        std::cout << "built a graph of 2 three node cycles\n";
+        std::cout << "and a root pointing to 3 nodes created with self_ptrs\n";
+        std::cout << "current number of objects allocated: " << g.size() << "\n\n";
 
-            cycle2.reset();
+        std::cout << "resetting root of one of the cycles and the tree root...\n";
+        cycle2.reset();
+        d.reset();
+        std::cout << "current number of objects allocated: " << g.size() << "\n\n";
 
-            std::cout << "after resetting cycle2, count is still " << p.size() << " because we have not collected garbage\n";
-            std::cout << "okay, collect...\n";
+        std::cout << g.debug_graph();
+        std::cout << "\n";
 
-            p.collect();
+        std::cout << "collecting...\n";
 
-            std::cout << "after collecting, count is  " << p.size() << ".\n";
-            std::cout << "cycles leaving scope...\n";
-        }
+        g.collect();
+        std::cout << "current number of objects allocated: " << g.size() << "\n\n";
 
-        std::cout << "graph pool leaving scope...\n";
+        std::cout << g.debug_graph();
+        std::cout << "\n";
+
     }
 
-    std::cout << "done\n";
-
-    return 0;
 }
