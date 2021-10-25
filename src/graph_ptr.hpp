@@ -626,10 +626,10 @@ namespace gptr {
     };
 
     template<typename T>
-    inline T* graph_root_ptr<T>::get() { return ptr_graph_->get<T>(v_); }
+    T* graph_root_ptr<T>::get() { return ptr_graph_->get<T>(v_); }
 
     template<typename T>
-    inline const T* graph_root_ptr<T>::get() const { return ptr_graph_->get<T>(v_); }
+    const T* graph_root_ptr<T>::get() const { return ptr_graph_->get<T>(v_); }
 
     template<typename T>
     T* graph_ptr<T>::get() { return ptr_graph_->get<T>(v_); }
