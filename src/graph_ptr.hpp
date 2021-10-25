@@ -49,7 +49,7 @@ namespace gptr {
                     auto [back_is_alive, num_collected] = delete_dead_from_back(back);
                     total_collected += num_collected;
                     if (back_is_alive && back > front && is_dead_(*front)) {
-                        std::swap(std::move(*front), std::move(*back));
+                        std::swap( *front, *back );
 
                         on_moved_(*front);
                     }
@@ -281,7 +281,7 @@ namespace gptr {
 
         using value_type = T;
 
-        graph_root_ptr() : obj_id_t(0), ptr_graph_(nullptr) {
+        graph_root_ptr() : v_(0), ptr_graph_(nullptr) {
         }
 
         graph_root_ptr(const graph_root_ptr& v) :
@@ -324,8 +324,8 @@ namespace gptr {
         T* operator->() { return get(); }
         T& operator*() { return *get(); }
         const T& operator*()  const { return *get(); }
-        T* get() { return ptr_graph_->get<T>(v_); }
-        const T* get() const { return ptr_graph_->get<T>(v_); }
+        inline T* get();
+        inline const T* get() const;
         explicit operator bool() const { return v_; }
 
         void reset() {
@@ -346,14 +346,8 @@ namespace gptr {
             this->v_ = 0;
         }
 
-        void release() {
-            if (this->ptr_graph_ && this->v_)
-                this->ptr_graph_->remove_root(this->v_);
-        }
-
-        void grab() {
-            this->ptr_graph_->insert_root(this->v_);
-        }
+        inline void release();
+        inline void grab();
 
         graph_root_ptr(ptr_graph* gp, internal::obj_id_t v) : ptr_graph_(gp), v_(v) {
             grab();
@@ -369,7 +363,7 @@ namespace gptr {
         friend class ptr_graph;
         template<typename U> friend class graph_root_ptr;
         template<typename U> friend class graph_ptr;
-        template<typename T> friend class enable_self_ptr;
+        template<typename U> friend class enable_self_ptr;
 
     public:
 
@@ -431,15 +425,15 @@ namespace gptr {
         T* operator->() { return get(); }
         T& operator*() { return *get(); }
         const T& operator*()  const { return *get(); }
-        T* get() { return ptr_graph_->get<T>(v_); }
-        const T* get() const { return ptr_graph_->get<T>(v_); }
+        inline T* get();
+        inline const T* get() const;
 
         void reset() {
             release();
             wipe();
         }
 
-        explicit operator bool() const { return v_ }
+        explicit operator bool() const { return v_; }
 
         ~graph_ptr() {
             release();
@@ -455,14 +449,8 @@ namespace gptr {
             v_ = 0;
         }
 
-        void release() {
-            if (ptr_graph_ && v_)
-                ptr_graph_->remove_edge(u_, v_);
-        }
-
-        void grab() {
-            ptr_graph_->insert_edge(u_, v_);
-        }
+        inline void release();
+        inline void grab();
 
         graph_ptr(ptr_graph* pg, internal::obj_id_t u, internal::obj_id_t v) : ptr_graph_(pg), u_(u), v_(v) {
             grab();
@@ -481,8 +469,7 @@ namespace gptr {
         enable_self_ptr() :self_id_(0), ptr_graph_(nullptr) {
         }
 
-        enable_self_ptr(ptr_graph& g) : ptr_graph_(&g), self_id_(g.make_new_id()) {
-        }
+        inline enable_self_ptr(ptr_graph& g);
 
         graph_ptr<T> self_ptr() {
             return graph_ptr<T>(ptr_graph_, self_id_, self_id_);
@@ -637,5 +624,43 @@ namespace gptr {
         internal::obj_id_t id_;
 
     };
+
+    template<typename T>
+    inline T* graph_root_ptr<T>::get() { return ptr_graph_->get<T>(v_); }
+
+    template<typename T>
+    inline const T* graph_root_ptr<T>::get() const { return ptr_graph_->get<T>(v_); }
+
+    template<typename T>
+    T* graph_ptr<T>::get() { return ptr_graph_->get<T>(v_); }
+
+    template<typename T>
+    const T* graph_ptr<T>::get() const { return ptr_graph_->get<T>(v_); }
+
+    template<typename T>
+    void graph_ptr<T>::release() {
+        if (ptr_graph_ && v_)
+            ptr_graph_->remove_edge(u_, v_);
+    }
+
+    template<typename T>
+    void graph_ptr<T>::grab() {
+        ptr_graph_->insert_edge(u_, v_);
+    }
+
+    template<typename T>
+    void graph_root_ptr<T>::release() {
+        if (this->ptr_graph_ && this->v_)
+            this->ptr_graph_->remove_root(this->v_);
+    }
+
+    template<typename T>
+    void graph_root_ptr<T>::grab() {
+        this->ptr_graph_->insert_root(this->v_);
+    }
+
+    template<typename T>
+    enable_self_ptr<T>::enable_self_ptr(ptr_graph& g) : ptr_graph_(&g), self_id_(g.make_new_id()) {
+    }
 
 }
